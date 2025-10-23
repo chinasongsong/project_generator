@@ -1,0 +1,11 @@
+# 避免索引这些文件夹，提升性能
+/target/
+/build/
+.idea/
+.vscode/
+node_modules/
+*.class
+*.jar
+*.war
+*.tmp
+*.log
