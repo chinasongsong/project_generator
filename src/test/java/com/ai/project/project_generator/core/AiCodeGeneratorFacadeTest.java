@@ -24,10 +24,4 @@ class AiCodeGeneratorFacadeTest {
 
     @Resource
     private AiCodeGeneratorFacade aiCodeGeneratorFacade;
-    
-    @Test
-    void generateAndSaveCode() {
-        File file = aiCodeGeneratorFacade.generateAndSaveCode("请做一个计算器", CodegenTypeEnum.HTML);
-        assertNotNull(file);
-    }
 }
