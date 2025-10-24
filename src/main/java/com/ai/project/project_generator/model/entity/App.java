@@ -5,16 +5,14 @@ import com.mybatisflex.annotation.Id;
 import com.mybatisflex.annotation.KeyType;
 import com.mybatisflex.annotation.Table;
 import com.mybatisflex.core.keygen.KeyGenerators;
-
-import java.io.Serializable;
-import java.time.LocalDateTime;
-
-import java.io.Serial;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.time.LocalDateTime;
 
 /**
  * 应用 实体类。
@@ -46,6 +44,7 @@ public class App implements Serializable {
     /**
      * 应用封面
      */
+    @Column("cover")
     private String cover;
 
     /**
@@ -75,6 +74,7 @@ public class App implements Serializable {
     /**
      * 优先级
      */
+    @Column("priority")
     private Integer priority;
 
     /**
