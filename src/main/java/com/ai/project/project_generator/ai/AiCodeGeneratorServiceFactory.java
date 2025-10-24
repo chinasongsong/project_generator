@@ -32,7 +32,7 @@ public class AiCodeGeneratorServiceFactory {
         return AiServices.create(AiCodeGeneratorService.class, chatModel);
     }
 
-    @Bean
+    @Bean("aiCodeGeneratorServiceStreaming")
     public AiCodeGeneratorService aiCodeGeneratorServiceStreaming() {
         return AiServices.builder(AiCodeGeneratorService.class)
             .chatModel(chatModel)
