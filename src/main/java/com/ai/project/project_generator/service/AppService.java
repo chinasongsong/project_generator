@@ -6,8 +6,8 @@ import com.ai.project.project_generator.model.vo.AppVO;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
-
 import jakarta.servlet.http.HttpServletRequest;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 
@@ -36,7 +36,7 @@ public interface AppService extends IService<App> {
     /**
      * 获取应用封装
      *
-     * @param app 应用
+     * @param app     应用
      * @param request 请求
      * @return 应用封装
      */
@@ -55,7 +55,7 @@ public interface AppService extends IService<App> {
      * 分页获取精选应用列表
      *
      * @param appQueryRequest 查询请求
-     * @param request 请求
+     * @param request         请求
      * @return 精选应用列表
      */
     List<AppVO> getFeaturedAppVOList(AppQueryRequest appQueryRequest, HttpServletRequest request);
@@ -64,7 +64,7 @@ public interface AppService extends IService<App> {
      * 分页获取精选应用列表
      *
      * @param appQueryRequest 查询请求
-     * @param request 请求
+     * @param request         请求
      * @return 精选应用分页列表
      */
     Page<AppVO> getFeaturedAppVOPage(AppQueryRequest appQueryRequest, HttpServletRequest request);
@@ -73,7 +73,7 @@ public interface AppService extends IService<App> {
      * 分页获取当前用户创建的应用列表
      *
      * @param appQueryRequest 查询请求
-     * @param request 请求
+     * @param request         请求
      * @return 应用列表
      */
     Page<AppVO> getMyAppVOPage(AppQueryRequest appQueryRequest, HttpServletRequest request);
@@ -82,7 +82,7 @@ public interface AppService extends IService<App> {
      * 分页获取应用列表（管理员）
      *
      * @param appQueryRequest 查询请求
-     * @param request 请求
+     * @param request         请求
      * @return 应用列表
      */
     List<AppVO> getAdminAppVOList(AppQueryRequest appQueryRequest, HttpServletRequest request);
@@ -91,7 +91,7 @@ public interface AppService extends IService<App> {
      * 分页获取应用列表（管理员）
      *
      * @param appQueryRequest 查询请求
-     * @param request 请求
+     * @param request         请求
      * @return 应用分页列表
      */
     Page<AppVO> getAdminAppVOPage(AppQueryRequest appQueryRequest, HttpServletRequest request);
@@ -99,7 +99,7 @@ public interface AppService extends IService<App> {
     /**
      * 根据 id 获取应用详情（用户端）
      *
-     * @param id 应用 id
+     * @param id      应用 id
      * @param request 请求
      * @return 应用详情
      */
@@ -108,16 +108,16 @@ public interface AppService extends IService<App> {
     /**
      * 根据 id 获取应用详情（管理员）
      *
-     * @param id 应用 id
+     * @param id      应用 id
      * @param request 请求
      * @return 应用详情
      */
-    App getAppById(Long id, HttpServletRequest request);
+    App getAppById(Long id);
 
     /**
      * 创建应用
      *
-     * @param app 应用
+     * @param app     应用
      * @param request 请求
      * @return 新应用 id
      */
@@ -126,7 +126,7 @@ public interface AppService extends IService<App> {
     /**
      * 更新应用（用户端）
      *
-     * @param app 应用
+     * @param app     应用
      * @param request 请求
      * @return 更新结果
      */
@@ -135,7 +135,7 @@ public interface AppService extends IService<App> {
     /**
      * 更新应用（管理员）
      *
-     * @param app 应用
+     * @param app     应用
      * @param request 请求
      * @return 更新结果
      */
@@ -144,7 +144,7 @@ public interface AppService extends IService<App> {
     /**
      * 删除应用（用户端）
      *
-     * @param id 应用 id
+     * @param id      应用 id
      * @param request 请求
      * @return 删除结果
      */
@@ -153,9 +153,16 @@ public interface AppService extends IService<App> {
     /**
      * 删除应用（管理员）
      *
-     * @param id 应用 id
+     * @param id      应用 id
      * @param request 请求
      * @return 删除结果
      */
     Boolean deleteAppByAdmin(Long id, HttpServletRequest request);
+
+
+    /**
+     * 生成应用
+     */
+    Flux<String> charToGenerateApp(Long appId, String userMessage, HttpServletRequest request);
+
 }
