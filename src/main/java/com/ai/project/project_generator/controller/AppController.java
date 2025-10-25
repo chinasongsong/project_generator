@@ -1,7 +1,5 @@
 package com.ai.project.project_generator.controller;
 
-import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.util.StrUtil;
 import com.ai.project.project_generator.annotation.AuthCheck;
 import com.ai.project.project_generator.common.BaseResponse;
 import com.ai.project.project_generator.common.DeleteRequest;
@@ -18,11 +16,25 @@ import com.ai.project.project_generator.model.entity.App;
 import com.ai.project.project_generator.model.vo.AppVO;
 import com.ai.project.project_generator.service.AppService;
 import com.mybatisflex.core.paginate.Page;
+
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 /**
  * 应用 控制层。
@@ -39,15 +51,21 @@ public class AppController {
     // region 用户端接口
 
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> charToGenerateApp(@RequestParam Long appId, @RequestParam String userMessage, HttpServletRequest request) {
-        return appService.charToGenerateApp(appId, userMessage, request);
+    public Flux<ServerSentEvent<String>> charToGenerateApp(@RequestParam Long appId, @RequestParam String userMessage,
+        HttpServletRequest request) {
+        Flux<String> stringFlux = appService.charToGenerateApp(appId, userMessage, request);
+        return stringFlux.map(chunk -> {
+            Map<String, String> wrapper = Map.of("d", chunk);
+            String jsonStr = JSONUtil.toJsonStr(wrapper);
+            return ServerSentEvent.<String>builder().data(jsonStr).build();
+        }).concatWith(Mono.just(ServerSentEvent.<String>builder().event("done").data("").build()));
     }
 
     /**
      * 创建应用
      *
      * @param appAddRequest 创建应用请求
-     * @param request       请求
+     * @param request 请求
      * @return 新应用 id
      */
     @PostMapping("/add")
@@ -66,7 +84,7 @@ public class AppController {
      * 删除应用
      *
      * @param deleteRequest 删除请求
-     * @param request       请求
+     * @param request 请求
      * @return 删除结果
      */
     @PostMapping("/delete")
@@ -82,7 +100,7 @@ public class AppController {
      * 更新应用（仅本人）
      *
      * @param appUpdateRequest 更新应用请求
-     * @param request          请求
+     * @param request 请求
      * @return 更新结果
      */
     @PostMapping("/update")
@@ -100,7 +118,7 @@ public class AppController {
     /**
      * 根据 id 获取应用（封装类）
      *
-     * @param id      应用 id
+     * @param id 应用 id
      * @param request 请求
      * @return 应用封装类
      */
@@ -114,12 +132,12 @@ public class AppController {
      * 分页获取当前用户创建的应用列表
      *
      * @param appQueryRequest 查询请求
-     * @param request         请求
+     * @param request 请求
      * @return 应用列表
      */
     @PostMapping("/my/list/page/vo")
     public BaseResponse<Page<AppVO>> listMyAppVOByPage(@RequestBody AppQueryRequest appQueryRequest,
-                                                       HttpServletRequest request) {
+        HttpServletRequest request) {
         if (appQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -138,12 +156,12 @@ public class AppController {
      * 分页获取精选应用列表
      *
      * @param appQueryRequest 查询请求
-     * @param request         请求
+     * @param request 请求
      * @return 精选应用列表
      */
     @PostMapping("/list/page/vo/featured")
     public BaseResponse<Page<AppVO>> listFeaturedAppVOByPage(@RequestBody AppQueryRequest appQueryRequest,
-                                                             HttpServletRequest request) {
+        HttpServletRequest request) {
         if (appQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -157,7 +175,7 @@ public class AppController {
     /**
      * 根据 id 获取应用（仅管理员）
      *
-     * @param id      应用 id
+     * @param id 应用 id
      * @param request 请求
      * @return 应用封装类
      */
@@ -172,13 +190,13 @@ public class AppController {
      * 删除应用（仅管理员）
      *
      * @param deleteRequest 删除请求
-     * @param request       请求
+     * @param request 请求
      * @return 删除结果
      */
     @PostMapping("/delete/admin")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Boolean> deleteAppByAdmin(@RequestBody DeleteRequest deleteRequest,
-                                                  HttpServletRequest request) {
+        HttpServletRequest request) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -190,13 +208,13 @@ public class AppController {
      * 更新应用（仅管理员）
      *
      * @param appEditRequest 更新应用请求
-     * @param request        请求
+     * @param request 请求
      * @return 更新结果
      */
     @PostMapping("/edit")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Boolean> editAppByAdmin(@RequestBody AppEditRequest appEditRequest,
-                                                HttpServletRequest request) {
+        HttpServletRequest request) {
         if (appEditRequest == null || appEditRequest.getId() == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -213,19 +231,18 @@ public class AppController {
      * 分页获取应用列表（仅管理员）
      *
      * @param appQueryRequest 查询请求
-     * @param request         请求
+     * @param request 请求
      * @return 应用列表
      */
     @PostMapping("/list/page/vo/admin")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Page<AppVO>> listAppVOByPageAdmin(@RequestBody AppQueryRequest appQueryRequest,
-                                                          HttpServletRequest request) {
+        HttpServletRequest request) {
         if (appQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         Page<AppVO> appVOPage = appService.getAdminAppVOPage(appQueryRequest, request);
         return ResultUtils.success(appVOPage);
     }
-
 
 }
