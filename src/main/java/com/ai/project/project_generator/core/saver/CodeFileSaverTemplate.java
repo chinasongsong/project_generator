@@ -10,11 +10,12 @@ package com.ai.project.project_generator.core.saver;
  * @since 2025/10/23
  */
 
-import cn.hutool.core.io.FileUtil;
-import cn.hutool.core.util.StrUtil;
 import com.ai.project.project_generator.exception.BusinessException;
 import com.ai.project.project_generator.exception.ErrorCode;
 import com.ai.project.project_generator.model.enums.CodegenTypeEnum;
+
+import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.util.StrUtil;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -63,7 +64,7 @@ public abstract class CodeFileSaverTemplate<T> {
      * @return 目录路径
      */
     protected final String buildUniqueDir(Long appId) {
-        String codeType = getCodeType().getValue();
+        String codeType = getCodeType().getText();
         String uniqueDirName = StrUtil.format("{}_{}", codeType, appId);
         String dirPath = FILE_SAVE_ROOT_DIR + File.separator + uniqueDirName;
         FileUtil.mkdir(dirPath);
@@ -73,9 +74,9 @@ public abstract class CodeFileSaverTemplate<T> {
     /**
      * 写入单个文件的工具方法
      *
-     * @param dirPath  目录路径
+     * @param dirPath 目录路径
      * @param filename 文件名
-     * @param content  文件内容
+     * @param content 文件内容
      */
     protected final void writeToFile(String dirPath, String filename, String content) {
         if (StrUtil.isNotBlank(content)) {
@@ -94,7 +95,7 @@ public abstract class CodeFileSaverTemplate<T> {
     /**
      * 保存文件的具体实现（由子类实现）
      *
-     * @param result      代码结果对象
+     * @param result 代码结果对象
      * @param baseDirPath 基础目录路径
      */
     protected abstract void saveFiles(T result, String baseDirPath);
