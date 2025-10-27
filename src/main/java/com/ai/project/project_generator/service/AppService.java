@@ -109,7 +109,6 @@ public interface AppService extends IService<App> {
      * 根据 id 获取应用详情（管理员）
      *
      * @param id      应用 id
-     * @param request 请求
      * @return 应用详情
      */
     App getAppById(Long id);
@@ -165,4 +164,6 @@ public interface AppService extends IService<App> {
      */
     Flux<String> charToGenerateApp(Long appId, String userMessage, HttpServletRequest request);
 
+    
+    String deployApp(Long appId, HttpServletRequest request);
 }

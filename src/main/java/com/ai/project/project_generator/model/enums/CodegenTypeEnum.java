@@ -12,8 +12,8 @@ import lombok.Getter;
 @Getter
 public enum CodegenTypeEnum {
 
-    HTML("html", "HTML"),
-    MULTI_FILE("multi_file", "多文件");
+    HTML("原生 HTML 模式", "html"),
+    MULTI_FILE("原生多文件模式", "multi_file");
 
     private final String text;
 
