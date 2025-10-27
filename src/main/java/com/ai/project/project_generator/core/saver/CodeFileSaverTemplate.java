@@ -10,6 +10,7 @@ package com.ai.project.project_generator.core.saver;
  * @since 2025/10/23
  */
 
+import com.ai.project.project_generator.constant.AppConstant;
 import com.ai.project.project_generator.exception.BusinessException;
 import com.ai.project.project_generator.exception.ErrorCode;
 import com.ai.project.project_generator.model.enums.CodegenTypeEnum;
@@ -28,7 +29,7 @@ import java.nio.charset.StandardCharsets;
 public abstract class CodeFileSaverTemplate<T> {
 
     // 文件保存根目录
-    protected static final String FILE_SAVE_ROOT_DIR = System.getProperty("user.dir") + "/tmp/code_output";
+    protected static final String FILE_SAVE_ROOT_DIR = AppConstant.CODE_OUTPUT_ROOT_DIR;
 
     /**
      * 模板方法：保存代码的标准流程
@@ -64,7 +65,7 @@ public abstract class CodeFileSaverTemplate<T> {
      * @return 目录路径
      */
     protected final String buildUniqueDir(Long appId) {
-        String codeType = getCodeType().getText();
+        String codeType = getCodeType().getValue();
         String uniqueDirName = StrUtil.format("{}_{}", codeType, appId);
         String dirPath = FILE_SAVE_ROOT_DIR + File.separator + uniqueDirName;
         FileUtil.mkdir(dirPath);

@@ -9,6 +9,7 @@ import com.ai.project.project_generator.exception.BusinessException;
 import com.ai.project.project_generator.exception.ErrorCode;
 import com.ai.project.project_generator.exception.ThrowUtils;
 import com.ai.project.project_generator.model.dto.app.AppAddRequest;
+import com.ai.project.project_generator.model.dto.app.AppDeployRequest;
 import com.ai.project.project_generator.model.dto.app.AppEditRequest;
 import com.ai.project.project_generator.model.dto.app.AppQueryRequest;
 import com.ai.project.project_generator.model.dto.app.AppUpdateRequest;
@@ -243,6 +244,23 @@ public class AppController {
         }
         Page<AppVO> appVOPage = appService.getAdminAppVOPage(appQueryRequest, request);
         return ResultUtils.success(appVOPage);
+    }
+
+    /**
+     * 应用部署
+     *
+     * @param appDeployRequest 部署请求
+     * @param request 请求
+     * @return 部署 URL
+     */
+    @PostMapping("/deploy")
+    public BaseResponse<String> deployApp(@RequestBody AppDeployRequest appDeployRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
+        Long appId = appDeployRequest.getAppId();
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        // 调用服务部署应用
+        String deployUrl = appService.deployApp(appId, request);
+        return ResultUtils.success(deployUrl);
     }
 
 }
