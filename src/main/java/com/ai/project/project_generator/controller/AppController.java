@@ -181,7 +181,6 @@ public class AppController {
      * @return 应用封装类
      */
     @GetMapping("/get")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<AppVO> getAppById(long id, HttpServletRequest request) {
         AppVO appVO = appService.getAppVOById(id, request);
         return ResultUtils.success(appVO);

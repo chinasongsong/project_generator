@@ -259,7 +259,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         App oldApp = this.getById(id);
         ThrowUtils.throwIf(oldApp == null, ErrorCode.NOT_FOUND_ERROR);
         // 仅本人可编辑
-        if (!oldApp.getUserId().equals(user.getId())) {
+        if (!oldApp.getUserId().equals(user.getId()) && !userService.isAdmin(request)) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
 
@@ -267,6 +267,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         App updateApp = new App();
         updateApp.setId(id);
         updateApp.setAppName(app.getAppName());
+        updateApp.setCover(app.getCover());
         // 设置编辑时间为当前时间
         updateApp.setEditTime(LocalDateTime.now());
 
@@ -347,7 +348,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
             deployKey = RandomUtil.randomString(6);
         }
         // 5. 获取代码生成类型，构建源目录路径
-        String codeGenType =  app.getCodeGenType();
+        String codeGenType = app.getCodeGenType();
         String sourceDirName = codeGenType + "_" + appId;
         String sourceDirPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
         // 6. 检查源目录是否存在
