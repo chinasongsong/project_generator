@@ -10,9 +10,11 @@ import com.ai.project.project_generator.model.dto.app.AppQueryRequest;
 import com.ai.project.project_generator.model.entity.App;
 import com.ai.project.project_generator.model.entity.User;
 import com.ai.project.project_generator.model.enums.CodegenTypeEnum;
+import com.ai.project.project_generator.model.enums.MessageTypeEnum;
 import com.ai.project.project_generator.model.vo.AppVO;
 import com.ai.project.project_generator.model.vo.UserVO;
 import com.ai.project.project_generator.service.AppService;
+import com.ai.project.project_generator.service.ChatHistoryService;
 import com.ai.project.project_generator.service.UserService;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
@@ -25,6 +27,7 @@ import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 
 import org.springframework.stereotype.Service;
@@ -43,6 +46,7 @@ import java.util.stream.Collectors;
  * @author <a href="https://github.com/chinasongsong">fzs</a>
  */
 @Service
+@Slf4j
 public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppService {
 
     @Resource
@@ -50,6 +54,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private AiCodeGeneratorFacade aiCodeGeneratorFacade;
+
+    @Resource
+    private ChatHistoryService chatHistoryService;
 
     @Override
     public void validApp(App app) {
@@ -298,6 +305,12 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         if (!oldApp.getUserId().equals(user.getId()) && !userService.isAdmin(request)) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
+        // 删除应用的所有对话历史
+        try {
+            chatHistoryService.deleteByAppId(id);
+        } catch (Exception e) {
+            log.error("删除应用对话历史失败,{}", e.getMessage());
+        }
         return this.removeById(id);
     }
 
@@ -306,6 +319,12 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         // 判断是否存在
         App oldApp = this.getById(id);
         ThrowUtils.throwIf(oldApp == null, ErrorCode.NOT_FOUND_ERROR);
+        // 删除应用的所有对话历史
+        try {
+            chatHistoryService.deleteByAppId(id);
+        } catch (Exception e) {
+            log.error("删除应用对话历史失败,{}", e.getMessage());
+        }
         return this.removeById(id);
     }
 
@@ -325,7 +344,21 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         CodegenTypeEnum enumByValue = CodegenTypeEnum.getEnumByValue(codeGenType);
         ThrowUtils.throwIf(enumByValue == null, ErrorCode.PARAMS_ERROR, "不支持的代码生成类型: " + codeGenType);
 
-        return aiCodeGeneratorFacade.generateAndSaveCodeStream(userMessage, enumByValue, appId);
+        chatHistoryService.saveChatMessage(appId, userMessage, MessageTypeEnum.USER.getValue(), loinUser.getId());
+        Flux<String> contentFlux = aiCodeGeneratorFacade.generateAndSaveCodeStream(userMessage, enumByValue, appId);
+        StringBuilder aiResponseBuilder = new StringBuilder();
+        return contentFlux.map(chunk -> {
+            aiResponseBuilder.append(chunk);
+            return chunk;
+        }).doOnComplete(() -> {
+            String aiResponse = aiResponseBuilder.toString();
+            if (StrUtil.isNotEmpty(aiResponse)) {
+                chatHistoryService.saveChatMessage(appId, aiResponse, MessageTypeEnum.AI.getValue(), loinUser.getId());
+            }
+        }).doOnError(error -> {
+            String errorMessage = "AI回复失败" + error.getMessage();
+            chatHistoryService.saveChatMessage(appId, errorMessage, MessageTypeEnum.AI.getValue(), loinUser.getId());
+        });
     }
 
     @Override
