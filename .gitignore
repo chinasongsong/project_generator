@@ -41,3 +41,4 @@ settings_v2.xml
 application-local.yml
 application-prod.yml
 tmp
+MyBatisCodeGenerator.java
