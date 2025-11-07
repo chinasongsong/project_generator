@@ -21,8 +21,12 @@ import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import dev.langchain4j.data.message.UserMessage;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -38,6 +42,7 @@ import java.util.stream.Collectors;
  * @author <a href="https://github.com/chinasongsong">fzs</a>
  */
 @Service
+@Slf4j
 public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatHistory> implements ChatHistoryService {
 
     @Resource
@@ -185,5 +190,42 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
 
         return this.remove(queryWrapper);
     }
+
+    @Override
+    public int loadChatHistoryToMemory(Long appId, MessageWindowChatMemory chatMemory, int maxCount) {
+        try {
+            QueryWrapper wrapper = QueryWrapper.create()
+                .eq(ChatHistory::getAppId, appId)
+                .orderBy(ChatHistory::getCreateTime, false)
+                .limit(1, maxCount);
+            /**
+             * 起始点为1，默认AI会将对话中的消息加入到记忆中，所以需要排除掉，避免重复；
+             */
+            List<ChatHistory> historyList = this.list(wrapper);
+            if (CollUtil.isEmpty(historyList)) {
+                return 0;
+            }
+            historyList = historyList.reversed();
+            int loadedCount = 0;
+            chatMemory.clear();
+            for (ChatHistory history : historyList) {
+                if (MessageTypeEnum.USER.getValue().equals(history.getMessageType())) {
+                    chatMemory.add(UserMessage.from(history.getMessage()));
+                    loadedCount++;
+                } else if (MessageTypeEnum.AI.getValue().equals(history.getMessageType())) {
+                    chatMemory.add(AiMessage.from(history.getMessage()));
+                    loadedCount++ ;
+                }
+            }
+
+            log.info("成功为appId: {} 加载了 {} 条历史对话", appId, loadedCount);
+            return loadedCount;
+        } catch (Exception e ){
+            log.error("加载历史对话失败，appId: {}, error: {}", appId, e.getMessage(), e);
+            return 0 ;
+        }
+        
+    }
+
 }
 

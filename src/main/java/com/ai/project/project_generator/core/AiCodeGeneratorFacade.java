@@ -5,6 +5,7 @@
 package com.ai.project.project_generator.core;
 
 import com.ai.project.project_generator.ai.AiCodeGeneratorService;
+import com.ai.project.project_generator.ai.AiCodeGeneratorServiceFactory;
 import com.ai.project.project_generator.ai.model.HtmlCodeResult;
 import com.ai.project.project_generator.ai.model.MultiFileCodeResult;
 import com.ai.project.project_generator.core.parser.CodeParserExecutor;
@@ -29,8 +30,14 @@ import java.io.File;
 @Slf4j
 public class AiCodeGeneratorFacade {
 
-    @Resource(name = "aiCodeGeneratorServiceStreaming")
-    private AiCodeGeneratorService aiCodeGeneratorService;
+    // @Resource
+    // private AiCodeGeneratorService aiCodeGeneratorService;
+    //
+    
+    @Resource
+    private AiCodeGeneratorServiceFactory aiCodeGeneratorServiceFactory;
+
+
     
     /**
      * 统一入口：根据类型生成并保存代码
@@ -40,6 +47,7 @@ public class AiCodeGeneratorFacade {
      * @return 保存的目录
      */
     public File generateAndSaveCode(String userMessage, CodegenTypeEnum codeGenTypeEnum, Long appId) {
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId);
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "生成类型为空");
         }
@@ -66,6 +74,7 @@ public class AiCodeGeneratorFacade {
      * @param codeGenTypeEnum 生成类型
      */
     public Flux<String> generateAndSaveCodeStream(String userMessage, CodegenTypeEnum codeGenTypeEnum, Long appId) {
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId);
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "生成类型为空");
         }
