@@ -41,11 +41,11 @@ langchain4j:
       max-tokens: 8192
       log-requests: true
       log-responses: true
-  community:
-    redis :
-      enabled: true
-      host: 127.0.0.1
-      port: 6379
-      password:
-      dimension: 384
+#  community:
+#    redis :
+#      enabled: false
+#      host: 127.0.0.1
+#      port: 6379
+#      password:
+#      dimension: 384
       

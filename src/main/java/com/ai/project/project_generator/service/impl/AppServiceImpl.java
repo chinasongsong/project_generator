@@ -31,8 +31,11 @@ import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.io.File;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -355,9 +358,13 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
             if (StrUtil.isNotEmpty(aiResponse)) {
                 chatHistoryService.saveChatMessage(appId, aiResponse, MessageTypeEnum.AI.getValue(), loinUser.getId());
             }
-        }).doOnError(error -> {
-            String errorMessage = "AI回复失败" + error.getMessage();
+        }).onErrorResume(error -> {
+            // 处理错误，记录日志并保存错误消息
+            log.error("AI代码生成流式处理失败", error);
+            String errorMessage = getErrorMessage(error);
             chatHistoryService.saveChatMessage(appId, errorMessage, MessageTypeEnum.AI.getValue(), loinUser.getId());
+            // 返回错误信息流
+            return Flux.just("【错误】" + errorMessage);
         });
     }
 
@@ -405,6 +412,34 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用部署信息失败");
         // 9. 返回可访问的 URL
         return String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
+    }
+
+    /**
+     * 根据异常类型获取友好的错误消息
+     *
+     * @param error 异常对象
+     * @return 友好的错误消息
+     */
+    private String getErrorMessage(Throwable error) {
+        if (error instanceof ResourceAccessException) {
+            Throwable cause = error.getCause();
+            if (cause instanceof SocketTimeoutException) {
+                return "AI服务响应超时，请稍后重试";
+            } else if (cause instanceof SocketException) {
+                String message = cause.getMessage();
+                if (message != null && message.contains("Unexpected end of file")) {
+                    return "AI服务连接中断，可能是网络不稳定或服务异常，请稍后重试";
+                }
+                return "AI服务网络连接失败，请检查网络连接后重试";
+            }
+            return "AI服务访问失败: " + error.getMessage();
+        } else if (error instanceof SocketTimeoutException) {
+            return "AI服务响应超时，请稍后重试";
+        } else if (error instanceof SocketException) {
+            return "AI服务网络连接失败，请检查网络连接后重试";
+        } else {
+            return "AI服务调用失败: " + (error.getMessage() != null ? error.getMessage() : error.getClass().getSimpleName());
+        }
     }
 
 }

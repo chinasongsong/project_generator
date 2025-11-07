@@ -13,6 +13,7 @@ import com.ai.project.project_generator.core.saver.CodeFileSaverExecutor;
 import com.ai.project.project_generator.exception.BusinessException;
 import com.ai.project.project_generator.exception.ErrorCode;
 import com.ai.project.project_generator.model.enums.CodegenTypeEnum;
+import cn.hutool.core.util.StrUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,9 +31,6 @@ import java.io.File;
 @Slf4j
 public class AiCodeGeneratorFacade {
 
-    // @Resource
-    // private AiCodeGeneratorService aiCodeGeneratorService;
-    //
     
     @Resource
     private AiCodeGeneratorServiceFactory aiCodeGeneratorServiceFactory;
@@ -111,14 +109,32 @@ public class AiCodeGeneratorFacade {
             // 流式返回完成后保存代码
             try {
                 String completeCode = codeBuilder.toString();
-                // 使用执行器解析代码
-                Object parsedResult = CodeParserExecutor.executeParser(completeCode, codeGenType);
-                // 使用执行器保存代码
-                File savedDir = CodeFileSaverExecutor.executeSaver(parsedResult, codeGenType, appId);
-                log.info("保存成功，路径为：{}", savedDir.getAbsolutePath());
+                if (StrUtil.isNotEmpty(completeCode)) {
+                    // 使用执行器解析代码
+                    Object parsedResult = CodeParserExecutor.executeParser(completeCode, codeGenType);
+                    // 使用执行器保存代码
+                    File savedDir = CodeFileSaverExecutor.executeSaver(parsedResult, codeGenType, appId);
+                    log.info("保存成功，路径为：{}", savedDir.getAbsolutePath());
+                }
             } catch (Exception e) {
-                log.error("保存失败: {}", e.getMessage());
+                log.error("保存失败: {}", e.getMessage(), e);
             }
+        }).onErrorResume(error -> {
+            // 处理流式处理过程中的错误
+            log.error("代码流处理过程中发生错误", error);
+            // 如果已经有部分代码，尝试保存
+            try {
+                String partialCode = codeBuilder.toString();
+                if (StrUtil.isNotEmpty(partialCode)) {
+                    Object parsedResult = CodeParserExecutor.executeParser(partialCode, codeGenType);
+                    CodeFileSaverExecutor.executeSaver(parsedResult, codeGenType, appId);
+                    log.info("保存部分代码成功");
+                }
+            } catch (Exception e) {
+                log.error("保存部分代码失败: {}", e.getMessage(), e);
+            }
+            // 继续传播错误，让上层处理
+            return Flux.error(error);
         });
     }
 
