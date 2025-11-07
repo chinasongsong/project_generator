@@ -23,6 +23,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -34,7 +35,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.ResourceAccessException;
 
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.Map;
 
 /**
@@ -44,6 +48,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/app")
+@Slf4j
 public class AppController {
 
     @Resource
@@ -55,11 +60,28 @@ public class AppController {
     public Flux<ServerSentEvent<String>> charToGenerateApp(@RequestParam Long appId, @RequestParam String userMessage,
         HttpServletRequest request) {
         Flux<String> stringFlux = appService.charToGenerateApp(appId, userMessage, request);
-        return stringFlux.map(chunk -> {
+        Flux<ServerSentEvent<String>> dataFlux = stringFlux.map(chunk -> {
             Map<String, String> wrapper = Map.of("d", chunk);
             String jsonStr = JSONUtil.toJsonStr(wrapper);
             return ServerSentEvent.<String>builder().data(jsonStr).build();
-        }).concatWith(Mono.just(ServerSentEvent.<String>builder().event("done").data("").build()));
+        }).onErrorResume(error -> {
+            // 将错误转换为 SSE 格式返回
+            log.error("流式生成代码时发生错误", error);
+            String errorMessage = getErrorMessage(error);
+            Map<String, String> errorWrapper = Map.of("error", errorMessage);
+            String errorJsonStr = JSONUtil.toJsonStr(errorWrapper);
+            return Flux.just(ServerSentEvent.<String>builder().event("error").data(errorJsonStr).build());
+        });
+
+        // 在正常完成或错误后都发送 done 事件
+        return dataFlux.concatWith(Mono.just(ServerSentEvent.<String>builder().event("done").data("").build()))
+            .onErrorResume(error -> {
+                // 如果发送完成事件时也失败，确保返回错误事件
+                log.error("发送完成事件时发生错误", error);
+                Map<String, String> errorWrapper = Map.of("error", "系统错误: " + error.getMessage());
+                String errorJsonStr = JSONUtil.toJsonStr(errorWrapper);
+                return Flux.just(ServerSentEvent.<String>builder().event("error").data(errorJsonStr).build());
+            });
     }
 
     /**
@@ -260,6 +282,36 @@ public class AppController {
         // 调用服务部署应用
         String deployUrl = appService.deployApp(appId, request);
         return ResultUtils.success(deployUrl);
+    }
+
+    /**
+     * 根据异常类型获取友好的错误消息
+     *
+     * @param error 异常对象
+     * @return 友好的错误消息
+     */
+    private String getErrorMessage(Throwable error) {
+        if (error instanceof ResourceAccessException) {
+            Throwable cause = error.getCause();
+            if (cause instanceof SocketTimeoutException) {
+                return "AI服务响应超时，请稍后重试";
+            } else if (cause instanceof SocketException) {
+                String message = cause.getMessage();
+                if (message != null && message.contains("Unexpected end of file")) {
+                    return "AI服务连接中断，可能是网络不稳定或服务异常，请稍后重试";
+                }
+                return "AI服务网络连接失败，请检查网络连接后重试";
+            }
+            return "AI服务访问失败: " + error.getMessage();
+        } else if (error instanceof SocketTimeoutException) {
+            return "AI服务响应超时，请稍后重试";
+        } else if (error instanceof SocketException) {
+            return "AI服务网络连接失败，请检查网络连接后重试";
+        } else {
+            return "AI服务调用失败: " + (error.getMessage() != null
+                ? error.getMessage()
+                : error.getClass().getSimpleName());
+        }
     }
 
 }
