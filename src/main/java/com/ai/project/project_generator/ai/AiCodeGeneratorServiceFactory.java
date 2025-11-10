@@ -20,9 +20,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 /**
  * @author Feng Zengsong
@@ -42,7 +39,7 @@ public class AiCodeGeneratorServiceFactory {
 
     @Resource
     private RedisChatMemoryStore redisChatMemoryStore;
-    
+
     @Resource
     private ChatHistoryService chatHistoryService;
 
@@ -59,8 +56,7 @@ public class AiCodeGeneratorServiceFactory {
         } catch (Exception e) {
             log.warn("为appId: {} 异步加载历史对话失败，将使用空上下文: {}", appId, e.getMessage());
         }
-        
-        
+
         return AiServices.builder(AiCodeGeneratorService.class)
             .chatModel(chatModel)
             .streamingChatModel(streamingChatModel)
