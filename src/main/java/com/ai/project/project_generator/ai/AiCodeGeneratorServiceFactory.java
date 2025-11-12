@@ -4,11 +4,14 @@
 
 package com.ai.project.project_generator.ai;
 
+import com.ai.project.project_generator.ai.tool.FileWriteTool;
+import com.ai.project.project_generator.model.enums.CodegenTypeEnum;
 import com.ai.project.project_generator.service.ChatHistoryService;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
 import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
+import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
@@ -35,7 +38,10 @@ public class AiCodeGeneratorServiceFactory {
     private ChatModel chatModel;
 
     @Resource
-    private StreamingChatModel streamingChatModel;
+    private StreamingChatModel openAiStreamingChatModel;
+
+    @Resource
+    private StreamingChatModel reasoningStreamingChatModel;
 
     @Resource
     private RedisChatMemoryStore redisChatMemoryStore;
@@ -43,7 +49,7 @@ public class AiCodeGeneratorServiceFactory {
     @Resource
     private ChatHistoryService chatHistoryService;
 
-    private AiCodeGeneratorService createAiCodeGeneratorService(Long appId) {
+    private AiCodeGeneratorService createAiCodeGeneratorService(Long appId, CodegenTypeEnum codeGenType) {
         log.info("为appId: {} 创建新的AI服务实例", appId);
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder()
             .id(appId)
@@ -57,11 +63,24 @@ public class AiCodeGeneratorServiceFactory {
             log.warn("为appId: {} 异步加载历史对话失败，将使用空上下文: {}", appId, e.getMessage());
         }
 
-        return AiServices.builder(AiCodeGeneratorService.class)
-            .chatModel(chatModel)
-            .streamingChatModel(streamingChatModel)
-            .chatMemory(chatMemory)
-            .build();
+        return switch (codeGenType) {
+            case HTML, MULTI_FILE -> AiServices.builder(AiCodeGeneratorService.class)
+                .chatModel(chatModel)
+                .streamingChatModel(openAiStreamingChatModel)
+                .chatMemory(chatMemory)
+                .build();
+            case VUE -> AiServices.builder(AiCodeGeneratorService.class)
+                .chatModel(chatModel)
+                .streamingChatModel(reasoningStreamingChatModel)
+                .chatMemoryProvider(memoryId -> chatMemory)
+                .tools(new FileWriteTool())
+                .hallucinatedToolNameStrategy(
+                    // 幻觉工具名称策略，找不到工具时配置的策略，让框架处理AI出现幻觉的情况
+                    toolExecutionRequest -> ToolExecutionResultMessage.from(toolExecutionRequest,
+                        "Error: there is no tool called" + toolExecutionRequest.name()))
+                .build();
+            default -> throw new IllegalArgumentException("不支持的代码生成类型: " + codeGenType.getValue());
+        };
 
     }
 
@@ -70,7 +89,7 @@ public class AiCodeGeneratorServiceFactory {
         return getAiCodeGeneratorService(0L);
     }
 
-    private final Cache<Long, AiCodeGeneratorService> serviceCache = Caffeine.newBuilder()
+    private final Cache<String, AiCodeGeneratorService> serviceCache = Caffeine.newBuilder()
         .maximumSize(100)
         .expireAfterWrite(Duration.ofMinutes(30))
         .expireAfterAccess(Duration.ofMinutes(10))
@@ -80,7 +99,16 @@ public class AiCodeGeneratorServiceFactory {
         .build();
 
     public AiCodeGeneratorService getAiCodeGeneratorService(Long appId) {
-        return serviceCache.get(appId, this::createAiCodeGeneratorService);
+        return getAiCodeGeneratorService(appId, CodegenTypeEnum.HTML);
+    }
+
+    public AiCodeGeneratorService getAiCodeGeneratorService(Long appId, CodegenTypeEnum codegenTypeEnum) {
+        String cacheKey = buildCacheKey(appId, codegenTypeEnum);
+        return serviceCache.get(cacheKey, key -> createAiCodeGeneratorService(appId, codegenTypeEnum));
+    }
+
+    private String buildCacheKey(Long appId, CodegenTypeEnum codegenTypeEnum) {
+        return appId + ":" + codegenTypeEnum.getValue();
     }
 
 }
