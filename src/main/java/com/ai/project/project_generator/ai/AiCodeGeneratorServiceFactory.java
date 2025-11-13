@@ -68,6 +68,7 @@ public class AiCodeGeneratorServiceFactory {
                 .chatModel(chatModel)
                 .streamingChatModel(openAiStreamingChatModel)
                 .chatMemory(chatMemory)
+                .tools(new FileWriteTool())
                 .build();
             case VUE -> AiServices.builder(AiCodeGeneratorService.class)
                 .chatModel(chatModel)
@@ -99,7 +100,7 @@ public class AiCodeGeneratorServiceFactory {
         .build();
 
     public AiCodeGeneratorService getAiCodeGeneratorService(Long appId) {
-        return getAiCodeGeneratorService(appId, CodegenTypeEnum.HTML);
+        return getAiCodeGeneratorService(appId, CodegenTypeEnum.MULTI_FILE);
     }
 
     public AiCodeGeneratorService getAiCodeGeneratorService(Long appId, CodegenTypeEnum codegenTypeEnum) {
