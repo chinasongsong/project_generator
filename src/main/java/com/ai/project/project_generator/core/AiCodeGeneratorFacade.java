@@ -88,7 +88,7 @@ public class AiCodeGeneratorFacade {
             }
             case VUE -> {
                 Flux<String> codeStream = aiCodeGeneratorService.generateVueProjectCodeStream(appId, userMessage);
-                yield processCodeStream(codeStream, CodegenTypeEnum.VUE, appId);
+                yield processCodeStream(codeStream, CodegenTypeEnum.MULTI_FILE, appId);
             }
             default -> {
                 String errorMessage = "不支持的生成类型：" + codeGenTypeEnum.getValue();
