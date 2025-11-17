@@ -256,7 +256,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         }
 
         // 设置生成类型为多文件生成
-        app.setCodeGenType(CodegenTypeEnum.MULTI_FILE.getValue());
+        app.setCodeGenType(CodegenTypeEnum.VUE.getValue());
 
         // 设置默认优先级
         if (app.getPriority() == null) {

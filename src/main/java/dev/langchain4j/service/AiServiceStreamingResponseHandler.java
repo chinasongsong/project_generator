@@ -123,7 +123,24 @@ class AiServiceStreamingResponseHandler implements StreamingChatResponseHandler 
             for (ToolExecutionRequest toolExecutionRequest : aiMessage.toolExecutionRequests()) {
                 String toolName = toolExecutionRequest.name();
                 ToolExecutor toolExecutor = toolExecutors.get(toolName);
-                String toolExecutionResult = toolExecutor.execute(toolExecutionRequest, memoryId);
+                
+                String toolExecutionResult;
+                try {
+                    toolExecutionResult = toolExecutor.execute(toolExecutionRequest, memoryId);
+                } catch (Exception e) {
+                    // 处理工具执行错误，特别是 JSON 解析错误
+                    String errorMessage = "工具执行失败: " + e.getMessage();
+                    if (e.getCause() instanceof com.fasterxml.jackson.core.JsonParseException) {
+                        errorMessage = "工具参数 JSON 格式错误: " + e.getCause().getMessage() + 
+                                      "。参数内容: " + toolExecutionRequest.arguments();
+                        LOG.error("工具参数 JSON 解析失败 - 工具: {}, 参数: {}", 
+                                 toolName, toolExecutionRequest.arguments(), e);
+                    } else {
+                        LOG.error("工具执行失败 - 工具: {}", toolName, e);
+                    }
+                    toolExecutionResult = errorMessage;
+                }
+                
                 ToolExecutionResultMessage toolExecutionResultMessage =
                         ToolExecutionResultMessage.from(toolExecutionRequest, toolExecutionResult);
                 addToMemory(toolExecutionResultMessage);

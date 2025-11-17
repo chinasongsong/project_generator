@@ -9,6 +9,7 @@ import com.ai.project.project_generator.ai.model.MultiFileCodeResult;
 
 import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.service.UserMessage;
 import reactor.core.publisher.Flux;
 
@@ -34,5 +35,5 @@ public interface AiCodeGeneratorService {
 
     // 工具调用需要memoryId， 所以参数也需要加上memoryId，且有memoryId就需要指定memoryProvider
     @SystemMessage(fromResource = "prompt/codegen-vue-project-system-prompt.txt")
-    Flux<String> generateVueProjectCodeStream(@MemoryId long appId, @UserMessage String userMessage);
+    TokenStream generateVueProjectCodeStream(@MemoryId long appId, @UserMessage String userMessage);
 }
