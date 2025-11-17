@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: project_generator
+  profiles:
+    active: local
+  # session 配置
+  session:
+    store-type: redis
+    # session 30 天过期
+    timeout: 2592000
+
+
+
+
+server:
+  port: 8123
+  servlet:
+    context-path: /api
+    session: 
+      cookie:
+        max-age: 2592000
+
+# springdoc-openapi
+springdoc:
+  group-configs:
+    - group: 'default'
+      packages-to-scan: com.ai.project.project_generator.controller
+# knife4j
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+
+
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: https://api.deepseek.com
+      api-key: xxxxx
+      model-name: deepseek-chat
+      log-requests: true
+      log-responses: true
+      max-tokens: 8192
+      strict-mode: true
+      response-format:
+        type: json_object
+    streaming-chat-model:
+      base-url: https://api.deepseek.com
+      api-key: <Your API Key>
+      model-name: deepseek-chat
+      max-tokens: 8192
+      log-requests: true
+      log-responses: true
+#  community:
+#    redis :
+#      enabled: false
+#      host: 127.0.0.1
+#      port: 6379
+#      password:
+#      dimension: 384
+      
