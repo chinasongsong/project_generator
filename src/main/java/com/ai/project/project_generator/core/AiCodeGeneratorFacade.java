@@ -4,16 +4,25 @@
 
 package com.ai.project.project_generator.core;
 
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.ai.project.project_generator.ai.AiCodeGeneratorService;
 import com.ai.project.project_generator.ai.AiCodeGeneratorServiceFactory;
 import com.ai.project.project_generator.ai.model.HtmlCodeResult;
 import com.ai.project.project_generator.ai.model.MultiFileCodeResult;
+import com.ai.project.project_generator.ai.model.message.AiResponseMessage;
+import com.ai.project.project_generator.ai.model.message.ToolExecutedMessage;
+import com.ai.project.project_generator.ai.model.message.ToolRequestMessage;
+import com.ai.project.project_generator.constant.AppConstant;
+import com.ai.project.project_generator.core.builder.VueProjectBuilder;
 import com.ai.project.project_generator.core.parser.CodeParserExecutor;
 import com.ai.project.project_generator.core.saver.CodeFileSaverExecutor;
 import com.ai.project.project_generator.exception.BusinessException;
 import com.ai.project.project_generator.exception.ErrorCode;
 import com.ai.project.project_generator.model.enums.CodegenTypeEnum;
-import cn.hutool.core.util.StrUtil;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.service.TokenStream;
+import dev.langchain4j.service.tool.ToolExecution;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,12 +40,13 @@ import java.io.File;
 @Slf4j
 public class AiCodeGeneratorFacade {
 
-    
+
     @Resource
     private AiCodeGeneratorServiceFactory aiCodeGeneratorServiceFactory;
+    @Resource
+    private VueProjectBuilder vueProjectBuilder;
 
 
-    
     /**
      * 统一入口：根据类型生成并保存代码
      *
@@ -72,7 +82,7 @@ public class AiCodeGeneratorFacade {
      * @param codeGenTypeEnum 生成类型
      */
     public Flux<String> generateAndSaveCodeStream(String userMessage, CodegenTypeEnum codeGenTypeEnum, Long appId) {
-        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId,codeGenTypeEnum);
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId, codeGenTypeEnum);
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "生成类型为空");
         }
@@ -87,8 +97,8 @@ public class AiCodeGeneratorFacade {
                 yield processCodeStream(codeStream, CodegenTypeEnum.MULTI_FILE, appId);
             }
             case VUE -> {
-                Flux<String> codeStream = aiCodeGeneratorService.generateVueProjectCodeStream(appId, userMessage);
-                yield processCodeStream(codeStream, CodegenTypeEnum.MULTI_FILE, appId);
+                TokenStream tokenStream = aiCodeGeneratorService.generateVueProjectCodeStream(appId, userMessage);
+                yield processTokenStream(tokenStream, appId);
             }
             default -> {
                 String errorMessage = "不支持的生成类型：" + codeGenTypeEnum.getValue();
@@ -141,5 +151,41 @@ public class AiCodeGeneratorFacade {
             return Flux.error(error);
         });
     }
+
+
+    /**
+     * 将 TokenStream 转换为 Flux<String>，并传递工具调用信息
+     *
+     * @param tokenStream TokenStream 对象
+     * @return Flux<String> 流式响应
+     */
+    private Flux<String> processTokenStream(TokenStream tokenStream, Long appId) {
+        return Flux.create(sink -> {
+            tokenStream.onPartialResponse((String partialResponse) -> {
+                        AiResponseMessage aiResponseMessage = new AiResponseMessage(partialResponse);
+                        sink.next(JSONUtil.toJsonStr(aiResponseMessage));
+                    })
+                    .onPartialToolExecutionRequest((index, toolExecutionRequest) -> {
+                        ToolRequestMessage toolRequestMessage = new ToolRequestMessage(toolExecutionRequest);
+                        sink.next(JSONUtil.toJsonStr(toolRequestMessage));
+                    })
+                    .onToolExecuted((ToolExecution toolExecution) -> {
+                        ToolExecutedMessage toolExecutedMessage = new ToolExecutedMessage(toolExecution);
+                        sink.next(JSONUtil.toJsonStr(toolExecutedMessage));
+                    })
+                    .onCompleteResponse((ChatResponse response) -> {
+                        // 执行 Vue 项目构建（同步执行，确保预览时项目已就绪）
+                        String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR + "/vue_project_" + appId;
+                        vueProjectBuilder.buildProject(projectPath);
+                        sink.complete();
+                    })
+                    .onError((Throwable error) -> {
+                        error.printStackTrace();
+                        sink.error(error);
+                    })
+                    .start();
+        });
+    }
+
 
 }

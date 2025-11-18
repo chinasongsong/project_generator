@@ -2,6 +2,8 @@ package com.ai.project.project_generator.service.impl;
 
 import com.ai.project.project_generator.constant.AppConstant;
 import com.ai.project.project_generator.core.AiCodeGeneratorFacade;
+import com.ai.project.project_generator.core.builder.VueProjectBuilder;
+import com.ai.project.project_generator.core.handler.StreamHandlerExecutor;
 import com.ai.project.project_generator.exception.BusinessException;
 import com.ai.project.project_generator.exception.ErrorCode;
 import com.ai.project.project_generator.exception.ThrowUtils;
@@ -60,6 +62,12 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private ChatHistoryService chatHistoryService;
+
+    @Resource
+    private StreamHandlerExecutor streamHandlerExecutor;
+
+    @Resource
+    private VueProjectBuilder vueProjectBuilder;
 
     @Override
     public void validApp(App app) {
@@ -248,7 +256,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         }
 
         // 设置生成类型为多文件生成
-        app.setCodeGenType(CodegenTypeEnum.MULTI_FILE.getValue());
+        app.setCodeGenType(CodegenTypeEnum.VUE.getValue());
 
         // 设置默认优先级
         if (app.getPriority() == null) {
@@ -349,23 +357,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
         chatHistoryService.saveChatMessage(appId, userMessage, MessageTypeEnum.USER.getValue(), loinUser.getId());
         Flux<String> contentFlux = aiCodeGeneratorFacade.generateAndSaveCodeStream(userMessage, enumByValue, appId);
-        StringBuilder aiResponseBuilder = new StringBuilder();
-        return contentFlux.map(chunk -> {
-            aiResponseBuilder.append(chunk);
-            return chunk;
-        }).doOnComplete(() -> {
-            String aiResponse = aiResponseBuilder.toString();
-            if (StrUtil.isNotEmpty(aiResponse)) {
-                chatHistoryService.saveChatMessage(appId, aiResponse, MessageTypeEnum.AI.getValue(), loinUser.getId());
-            }
-        }).onErrorResume(error -> {
-            // 处理错误，记录日志并保存错误消息
-            log.error("AI代码生成流式处理失败", error);
-            String errorMessage = getErrorMessage(error);
-            chatHistoryService.saveChatMessage(appId, errorMessage, MessageTypeEnum.AI.getValue(), loinUser.getId());
-            // 返回错误信息流
-            return Flux.just("【错误】" + errorMessage);
-        });
+        return streamHandlerExecutor.doExecute(contentFlux, chatHistoryService, appId, loinUser, enumByValue);
+
     }
 
     @Override
@@ -396,50 +389,32 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         if (!sourceDir.exists() || !sourceDir.isDirectory()) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用代码不存在，请先生成代码");
         }
-        // 7. 复制文件到部署目录
+        // 7. Vue项目特殊处理：执行构建
+        CodegenTypeEnum codegenTypeEnum = CodegenTypeEnum.getEnumByValue(codeGenType);
+        if (codegenTypeEnum.equals(CodegenTypeEnum.VUE)) {
+            boolean buildSuccess = vueProjectBuilder.buildProject(sourceDirPath);
+            ThrowUtils.throwIf(!buildSuccess, ErrorCode.SYSTEM_ERROR, "Vue项目构建失败，请检查代码和依赖");
+            File distDir = new File(sourceDirPath, "dist");
+            ThrowUtils.throwIf(!distDir.exists(), ErrorCode.SYSTEM_ERROR, "Vue项目构建完成，但未生成Dist目录");
+            sourceDir = distDir;
+            log.info("Vue项目构建成功，将部署dist 目录 ： {}", distDir.getAbsolutePath());
+        }
+        // 8. 复制文件到部署目录
         String deployDirPath = AppConstant.CODE_DEPLOY_ROOT_DIR + File.separator + deployKey;
         try {
             FileUtil.copyContent(sourceDir, new File(deployDirPath), true);
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "部署失败：" + e.getMessage());
         }
-        // 8. 更新应用的 deployKey 和部署时间
+        // 9. 更新应用的 deployKey 和部署时间
         App updateApp = new App();
         updateApp.setId(appId);
         updateApp.setDeployKey(deployKey);
         updateApp.setDeployedTime(LocalDateTime.now());
         boolean updateResult = this.updateById(updateApp);
         ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用部署信息失败");
-        // 9. 返回可访问的 URL
+        // 10. 返回可访问的 URL
         return String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
-    }
-
-    /**
-     * 根据异常类型获取友好的错误消息
-     *
-     * @param error 异常对象
-     * @return 友好的错误消息
-     */
-    private String getErrorMessage(Throwable error) {
-        if (error instanceof ResourceAccessException) {
-            Throwable cause = error.getCause();
-            if (cause instanceof SocketTimeoutException) {
-                return "AI服务响应超时，请稍后重试";
-            } else if (cause instanceof SocketException) {
-                String message = cause.getMessage();
-                if (message != null && message.contains("Unexpected end of file")) {
-                    return "AI服务连接中断，可能是网络不稳定或服务异常，请稍后重试";
-                }
-                return "AI服务网络连接失败，请检查网络连接后重试";
-            }
-            return "AI服务访问失败: " + error.getMessage();
-        } else if (error instanceof SocketTimeoutException) {
-            return "AI服务响应超时，请稍后重试";
-        } else if (error instanceof SocketException) {
-            return "AI服务网络连接失败，请检查网络连接后重试";
-        } else {
-            return "AI服务调用失败: " + (error.getMessage() != null ? error.getMessage() : error.getClass().getSimpleName());
-        }
     }
 
 }
