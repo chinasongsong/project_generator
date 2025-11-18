@@ -4,6 +4,7 @@ import com.ai.project.project_generator.annotation.AuthCheck;
 import com.ai.project.project_generator.common.BaseResponse;
 import com.ai.project.project_generator.common.DeleteRequest;
 import com.ai.project.project_generator.common.ResultUtils;
+import com.ai.project.project_generator.constant.AppConstant;
 import com.ai.project.project_generator.constant.UserConstant;
 import com.ai.project.project_generator.exception.BusinessException;
 import com.ai.project.project_generator.exception.ErrorCode;
@@ -14,8 +15,11 @@ import com.ai.project.project_generator.model.dto.app.AppEditRequest;
 import com.ai.project.project_generator.model.dto.app.AppQueryRequest;
 import com.ai.project.project_generator.model.dto.app.AppUpdateRequest;
 import com.ai.project.project_generator.model.entity.App;
+import com.ai.project.project_generator.model.entity.User;
 import com.ai.project.project_generator.model.vo.AppVO;
 import com.ai.project.project_generator.service.AppService;
+import com.ai.project.project_generator.service.ProjectDownloadService;
+import com.ai.project.project_generator.service.UserService;
 import com.mybatisflex.core.paginate.Page;
 
 import cn.hutool.core.bean.BeanUtil;
@@ -23,13 +27,16 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,6 +44,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.ResourceAccessException;
 
+import java.io.File;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.Map;
@@ -53,6 +61,12 @@ public class AppController {
 
     @Resource
     private AppService appService;
+
+    @Autowired
+    private UserService userService;
+
+    @Resource
+    private ProjectDownloadService projectDownloadService;
 
     // region 用户端接口
 
@@ -282,6 +296,26 @@ public class AppController {
         // 调用服务部署应用
         String deployUrl = appService.deployApp(appId, request);
         return ResultUtils.success(deployUrl);
+    }
+
+    @GetMapping("/download/{appId}")
+    public void downloadFileAsZip(@PathVariable Long appId, HttpServletRequest request, HttpServletResponse response) {
+        ThrowUtils.throwIf(appId == null || appId < 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
+
+        App app = appService.getAppById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.PARAMS_ERROR, "应用不存在");
+        User loginUser = userService.getLoginUser(request);
+        if (!app.getUserId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限下载该应用代码");
+        }
+        String codeGenType = app.getCodeGenType();
+        String sourceDirName = codeGenType + "_" + appId;
+        String sourceDirPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
+        File sourceFile = new File(sourceDirPath);
+        ThrowUtils.throwIf(!sourceFile.exists() || !sourceFile.isDirectory(), ErrorCode.NOT_FOUND_ERROR,
+            "应用代码不存在，请先生成代码");
+        String downloadFileName = String.valueOf(appId);
+        projectDownloadService.downloadProjectAsZip(sourceDirPath, downloadFileName, response);
     }
 
     /**

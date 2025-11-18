@@ -256,6 +256,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         }
 
         // 设置生成类型为多文件生成
+        // TODO 智能选择生成方案
         app.setCodeGenType(CodegenTypeEnum.VUE.getValue());
 
         // 设置默认优先级
