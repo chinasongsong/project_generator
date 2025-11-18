@@ -1,5 +1,7 @@
 package com.ai.project.project_generator.service.impl;
 
+import com.ai.project.project_generator.ai.AiCodeGenTypeRoutingService;
+import com.ai.project.project_generator.ai.AiCodeGenTypeRoutingServiceFactory;
 import com.ai.project.project_generator.constant.AppConstant;
 import com.ai.project.project_generator.core.AiCodeGeneratorFacade;
 import com.ai.project.project_generator.core.builder.VueProjectBuilder;
@@ -69,6 +71,10 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     @Resource
     private VueProjectBuilder vueProjectBuilder;
 
+    @Resource
+    private AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService; 
+    
+    
     @Override
     public void validApp(App app) {
         if (app == null) {
@@ -257,7 +263,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
         // 设置生成类型为多文件生成
         // TODO 智能选择生成方案
-        app.setCodeGenType(CodegenTypeEnum.VUE.getValue());
+        CodegenTypeEnum codegenTypeEnum = aiCodeGenTypeRoutingService.routeCodeGenType(initPrompt);
+        app.setCodeGenType(codegenTypeEnum.getValue());
 
         // 设置默认优先级
         if (app.getPriority() == null) {
