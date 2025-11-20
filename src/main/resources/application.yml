@@ -61,11 +61,17 @@ langchain4j:
 #      dimension: 384
 # Pexels 图片搜索配置
 pexels:
-  api-key: xxxx
+  api-key: iPc6cTx4YwAYxxMS2ellrrLQ4sRlNWM41pSx248G06RmcKAfN6xYBxng
   
+# 添加 COS 对象存储配置（需要从腾讯云获取）
 cos:
-  client: xxx
+  client:
+    host: your host
+    secretId: your secretId
+    secretKey: your secretKey
+    region: your region
+    bucket: your bucket name
 # 阿里云 DashScope 配置
 dashscope:
-  api-key: <Your API Key>
+  api-key: your key
   image-model: wan2.2-t2i-flash

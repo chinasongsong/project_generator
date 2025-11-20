@@ -7,6 +7,7 @@ package com.ai.project.project_generator.utils;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.stereotype.Component;
 
 /**
  * @author Feng Zengsong
@@ -21,6 +22,7 @@ import org.springframework.context.ApplicationContextAware;
  * 支持在各种Node类中的静态方法中去调用服务，比如在图片节点中调用AI搜集图片服务ImageCollectionService
  */
 
+@Component
 public class SpringContextUtil implements ApplicationContextAware {
 
     private static ApplicationContext applicationContext;

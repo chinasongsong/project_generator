@@ -33,6 +33,15 @@ import java.util.List;
  * @since 2025/11/20
  */
 
+
+/**
+ *npm install -g cnpm --registry=https://registry.npmmirror.com，
+ * cnpm install -g puppeteer，
+ * cnpm install -g @mermaid-js/mermaid-cli
+ * ermaid-cli+COS（推荐)：先利用MermaidCLI工具将文本绘图代码转换为图片，之后上传到COS对象存储拿到对应的URL地址方便后续使用
+ *
+ */
+
 @Slf4j
 @Component
 public class MermaidDiagramTool {

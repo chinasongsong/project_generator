@@ -52,15 +52,15 @@ public class CodeGenWorkflow {
                 .addNode("router", RouterNode.create())
                 .addNode("code_generator", CodeGeneratorNode.create())
                 .addNode("project_builder", ProjectBuilderNode.create())
+                .addNode("code_quality_check", CodeQualityCheckNode.create())
 
                 // 添加边
                 .addEdge(START, "image_collector")
                 .addEdge("image_collector", "prompt_enhancer")
                 .addEdge("prompt_enhancer", "router")
                 .addEdge("router", "code_generator")
-                .addNode("code_quality_check", CodeQualityCheckNode.create())
                 .addEdge("code_generator", "code_quality_check")
-                .addConditionalEdges("code_generator", AsyncEdgeAction.edge_async(this::routeAfterQualityCheck),
+                .addConditionalEdges("code_quality_check", AsyncEdgeAction.edge_async(this::routeAfterQualityCheck),
                     Map.of("build", "project_builder", "skip_build", END, "fail", "code_generator"))
                 .addEdge("project_builder", END)
 
