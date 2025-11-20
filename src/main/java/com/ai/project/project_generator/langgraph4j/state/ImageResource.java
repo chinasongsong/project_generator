@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
+ */
+
+package com.ai.project.project_generator.langgraph4j.state;
+
+/**
+ * @author Feng Zengsong
+ * @version 0.0.1
+ * @since 2025/11/19
+ */
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.io.Serial;
+import java.io.Serializable;
+
+/**
+ * 图片资源对象
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ImageResource implements Serializable {
+
+    /**
+     * 图片类别
+     */
+    private ImageCategoryEnum category;
+
+    /**
+     * 图片描述
+     */
+    private String description;
+
+    /**
+     * 图片地址
+     */
+    private String url;
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+}
