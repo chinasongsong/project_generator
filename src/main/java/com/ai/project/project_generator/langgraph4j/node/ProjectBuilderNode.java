@@ -37,27 +37,22 @@ public class ProjectBuilderNode {
             String generatedCodeDir = context.getGeneratedCodeDir();
             CodegenTypeEnum generationType = context.getGenerationType();
             String buildResultDir;
-            if (generationType == CodegenTypeEnum.VUE) {
-                try {
-                    VueProjectBuilder vueProjectBuilder = SpringContextUtil.getBean(VueProjectBuilder.class);
-                    boolean buildSuccess = vueProjectBuilder.buildProject(generatedCodeDir);
+            try {
+                VueProjectBuilder vueProjectBuilder = SpringContextUtil.getBean(VueProjectBuilder.class);
+                boolean buildSuccess = vueProjectBuilder.buildProject(generatedCodeDir);
 
-                    if (buildSuccess) {
-                        buildResultDir = generatedCodeDir + File.separator + "dist";
-                        log.info("VUE项目构建成功，dist目录：{}", buildResultDir);
-                    } else {
-                        throw new BusinessException(ErrorCode.SYSTEM_ERROR, "VUE项目构建失败");
-                    }
-
-                } catch (Exception e) {
-                    log.error("VUE项目构建异常：{}", e.getMessage(), e);
-                    buildResultDir = generatedCodeDir;
+                if (buildSuccess) {
+                    buildResultDir = generatedCodeDir + File.separator + "dist";
+                    log.info("VUE项目构建成功，dist目录：{}", buildResultDir);
+                } else {
+                    throw new BusinessException(ErrorCode.SYSTEM_ERROR, "VUE项目构建失败");
                 }
-            } else {
-                // HTML和 MULTI_HTML代码生成时已经保存了，直接使用生成的代码目录
+
+            } catch (Exception e) {
+                log.error("VUE项目构建异常：{}", e.getMessage(), e);
                 buildResultDir = generatedCodeDir;
             }
-
+         
             // 更新状态
             context.setCurrentStep("项目构建");
             context.setBuildResultDir(buildResultDir);

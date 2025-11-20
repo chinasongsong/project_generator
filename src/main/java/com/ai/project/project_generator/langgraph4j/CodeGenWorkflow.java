@@ -9,12 +9,15 @@ import static org.bsc.langgraph4j.StateGraph.START;
 
 import com.ai.project.project_generator.exception.BusinessException;
 import com.ai.project.project_generator.exception.ErrorCode;
+import com.ai.project.project_generator.langgraph4j.model.QualityResult;
 import com.ai.project.project_generator.langgraph4j.node.CodeGeneratorNode;
+import com.ai.project.project_generator.langgraph4j.node.CodeQualityCheckNode;
 import com.ai.project.project_generator.langgraph4j.node.ImageCollectorNode;
 import com.ai.project.project_generator.langgraph4j.node.ProjectBuilderNode;
 import com.ai.project.project_generator.langgraph4j.node.PromptEnhancerNode;
 import com.ai.project.project_generator.langgraph4j.node.RouterNode;
 import com.ai.project.project_generator.langgraph4j.state.WorkflowContext;
+import com.ai.project.project_generator.model.enums.CodegenTypeEnum;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -22,6 +25,7 @@ import org.bsc.langgraph4j.CompiledGraph;
 import org.bsc.langgraph4j.GraphRepresentation;
 import org.bsc.langgraph4j.GraphStateException;
 import org.bsc.langgraph4j.NodeOutput;
+import org.bsc.langgraph4j.action.AsyncEdgeAction;
 import org.bsc.langgraph4j.prebuilt.MessagesState;
 import org.bsc.langgraph4j.prebuilt.MessagesStateGraph;
 
@@ -54,7 +58,10 @@ public class CodeGenWorkflow {
                 .addEdge("image_collector", "prompt_enhancer")
                 .addEdge("prompt_enhancer", "router")
                 .addEdge("router", "code_generator")
-                .addEdge("code_generator", "project_builder")
+                .addNode("code_quality_check", CodeQualityCheckNode.create())
+                .addEdge("code_generator", "code_quality_check")
+                .addConditionalEdges("code_generator", AsyncEdgeAction.edge_async(this::routeAfterQualityCheck),
+                    Map.of("build", "project_builder", "skip_build", END, "fail", "code_generator"))
                 .addEdge("project_builder", END)
 
                 // 编译工作流
@@ -96,4 +103,31 @@ public class CodeGenWorkflow {
         log.info("代码生成工作流执行完成！");
         return finalContext;
     }
+
+    private String routeBuildOrSkip(MessagesState<String> state) {
+        WorkflowContext context = WorkflowContext.getContext(state);
+        CodegenTypeEnum generationType = context.getGenerationType();
+        // HTML 和 MULTI_FILE 类型不需要构建，直接结束
+        if (generationType == CodegenTypeEnum.HTML || generationType == CodegenTypeEnum.MULTI_FILE) {
+            return "skip_build";
+        }
+        // VUE_PROJECT 需要构建
+        return "build";
+    }
+
+    private String routeAfterQualityCheck(MessagesState<String> state) {
+        WorkflowContext context = WorkflowContext.getContext(state);
+        QualityResult qualityResult = context.getQualityResult();
+        // 如果质检失败，重新生成代码
+        if (qualityResult == null || !qualityResult.getIsValid()) {
+            log.error("代码质检失败，需要重新生成代码");
+            return "fail";
+        }
+        // 质检通过，使用原有的构建路由逻辑
+        log.info("代码质检通过，继续后续流程");
+        return routeBuildOrSkip(state);
+    }
+
+
+
 }

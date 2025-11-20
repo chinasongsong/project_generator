@@ -10,6 +10,7 @@ package com.ai.project.project_generator.langgraph4j.state;
  * @since 2025/11/19
  */
 
+import com.ai.project.project_generator.langgraph4j.model.QualityResult;
 import com.ai.project.project_generator.model.enums.CodegenTypeEnum;
 
 import lombok.AllArgsConstructor;
@@ -82,6 +83,11 @@ public class WorkflowContext implements Serializable {
      * 错误信息
      */
     private String errorMessage;
+
+    /**
+     * 质量检查结果
+     */
+    private QualityResult qualityResult;
 
     @Serial
     private static final long serialVersionUID = 1L;
