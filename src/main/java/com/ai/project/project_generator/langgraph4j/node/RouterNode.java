@@ -7,6 +7,7 @@ package com.ai.project.project_generator.langgraph4j.node;
 import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
 
 import com.ai.project.project_generator.ai.AiCodeGenTypeRoutingService;
+import com.ai.project.project_generator.ai.AiCodeGenTypeRoutingServiceFactory;
 import com.ai.project.project_generator.langgraph4j.state.WorkflowContext;
 import com.ai.project.project_generator.model.enums.CodegenTypeEnum;
 import com.ai.project.project_generator.utils.SpringContextUtil;
@@ -30,8 +31,10 @@ public class RouterNode {
             log.info("执行节点: 智能路由");
             CodegenTypeEnum generationType;
             try {
-                AiCodeGenTypeRoutingService routingService = SpringContextUtil.getBean(
-                    AiCodeGenTypeRoutingService.class);
+                AiCodeGenTypeRoutingServiceFactory routingServiceFactory = SpringContextUtil.getBean(
+                    AiCodeGenTypeRoutingServiceFactory.class);
+                AiCodeGenTypeRoutingService routingService
+                    = routingServiceFactory.createAiCodeGenTypeRoutingService();
                 generationType = routingService.routeCodeGenType(context.getOriginalPrompt());
                 log.info("AI智能路由选择完成，选择类型：{}（{}）", generationType.getValue(), generationType.getText());
             } catch (Exception e) {

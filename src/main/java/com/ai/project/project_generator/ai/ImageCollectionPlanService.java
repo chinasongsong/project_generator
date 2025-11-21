@@ -1,4 +1,4 @@
-package com.ai.project.project_generator;
+package com.ai.project.project_generator.ai;
 
 import com.ai.project.project_generator.langgraph4j.model.ImageCollectionPlan;
 import dev.langchain4j.service.SystemMessage;

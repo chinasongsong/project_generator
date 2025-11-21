@@ -35,11 +35,8 @@ import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.ResourceAccessException;
 
 import java.io.File;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,11 +67,10 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private VueProjectBuilder vueProjectBuilder;
-
+    
     @Resource
-    private AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService; 
-    
-    
+    private AiCodeGenTypeRoutingServiceFactory aiCodeGenTypeRoutingServiceFactory;
+
     @Override
     public void validApp(App app) {
         if (app == null) {
@@ -263,7 +259,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
         // 设置生成类型为多文件生成
         // TODO 智能选择生成方案
-        CodegenTypeEnum codegenTypeEnum = aiCodeGenTypeRoutingService.routeCodeGenType(initPrompt);
+        AiCodeGenTypeRoutingService routingService
+            = aiCodeGenTypeRoutingServiceFactory.createAiCodeGenTypeRoutingService();
+        CodegenTypeEnum codegenTypeEnum = routingService.routeCodeGenType(initPrompt);
         app.setCodeGenType(codegenTypeEnum.getValue());
 
         // 设置默认优先级

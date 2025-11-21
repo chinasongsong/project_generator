@@ -16,13 +16,13 @@ import org.springframework.context.annotation.Scope;
 /**
  * @author Feng Zengsong
  * @version 0.0.1
- * @since 2025/11/12
+ * @since 2025/11/21
  */
 
 @Configuration
-@ConfigurationProperties(prefix = "langchain4j.open-ai.reasoning-streaming-chat-model")
+@ConfigurationProperties(prefix = "langchain4j.open-ai.streaming-chat-model")
 @Data
-public class ReasoningStreamingChatModelConfig {
+public class StreamingChatModelConfig {
 
     private String baseUrl;
 
@@ -34,13 +34,13 @@ public class ReasoningStreamingChatModelConfig {
 
     private Double temperature;
 
-    private Boolean logRequests = false;
+    private boolean logRequests;
 
-    private Boolean logResponses = false;
+    private boolean logResponses;
 
     @Bean
-    @Scope("prototype")
-    public StreamingChatModel reasoningStreamingChatModelPrototype() {
+    @Scope("prototype")  // 每次请求重新生成一个实例
+    public StreamingChatModel streamingChatModelPrototype() {
         return OpenAiStreamingChatModel.builder()
             .apiKey(apiKey)
             .baseUrl(baseUrl)
@@ -52,4 +52,3 @@ public class ReasoningStreamingChatModelConfig {
             .build();
     }
 }
-

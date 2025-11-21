@@ -7,6 +7,7 @@ package com.ai.project.project_generator.ai;
 import com.ai.project.project_generator.ai.tool.FileWriteTool;
 import com.ai.project.project_generator.model.enums.CodegenTypeEnum;
 import com.ai.project.project_generator.service.ChatHistoryService;
+import com.ai.project.project_generator.utils.SpringContextUtil;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
@@ -34,14 +35,8 @@ import java.time.Duration;
 @Configuration
 public class AiCodeGeneratorServiceFactory {
 
-    @Resource
+    @Resource(name = "openAiChatModel")
     private ChatModel chatModel;
-
-    @Resource
-    private StreamingChatModel openAiStreamingChatModel;
-
-    @Resource
-    private StreamingChatModel reasoningStreamingChatModel;
 
     @Resource
     private RedisChatMemoryStore redisChatMemoryStore;
@@ -64,24 +59,37 @@ public class AiCodeGeneratorServiceFactory {
         }
 
         return switch (codeGenType) {
-            case HTML, MULTI_FILE -> AiServices.builder(AiCodeGeneratorService.class)
-                .chatModel(chatModel)
-                .streamingChatModel(openAiStreamingChatModel)
-                .chatMemory(chatMemory)
-                .tools(new FileWriteTool())
-                .build();
-            case VUE -> AiServices.builder(AiCodeGeneratorService.class)
-                .chatModel(chatModel)
-                .streamingChatModel(reasoningStreamingChatModel)
-                .chatMemoryProvider(memoryId -> chatMemory)
-                .tools(new FileWriteTool())
-                .hallucinatedToolNameStrategy(
-                    // 幻觉工具名称策略，找不到工具时配置的策略，让框架处理AI出现幻觉的情况
-                    toolExecutionRequest -> ToolExecutionResultMessage.from(toolExecutionRequest,
-                        "Error: there is no tool called" + toolExecutionRequest.name()))
-                .build();
+            case HTML, MULTI_FILE -> {
+                StreamingChatModel streamingChatModelPrototype = SpringContextUtil.getBean(
+                    "streamingChatModelPrototype", StreamingChatModel.class);
+                yield AiServices.builder(AiCodeGeneratorService.class)
+                    .chatModel(chatModel)
+                    .streamingChatModel(streamingChatModelPrototype)
+                    .chatMemoryProvider(memoryId -> chatMemory)
+                    .hallucinatedToolNameStrategy(
+                        // 幻觉工具名称策略，找不到工具时配置的策略，让框架处理AI出现幻觉的情况
+                        toolExecutionRequest -> ToolExecutionResultMessage.from(toolExecutionRequest,
+                            "Error: there is no tool called" + toolExecutionRequest.name()))
+                    .build();
+            }
+            case VUE -> {
+                StreamingChatModel reasoningStreamingChatModelPrototype = SpringContextUtil.getBean(
+                    "reasoningStreamingChatModelPrototype", StreamingChatModel.class);
+                yield AiServices.builder(AiCodeGeneratorService.class)
+                    .chatModel(chatModel)
+                    .streamingChatModel(reasoningStreamingChatModelPrototype)
+                    .chatMemoryProvider(memoryId -> chatMemory)
+                    .tools(new FileWriteTool())
+                    .hallucinatedToolNameStrategy(
+                        // 幻觉工具名称策略，找不到工具时配置的策略，让框架处理AI出现幻觉的情况
+                        toolExecutionRequest -> ToolExecutionResultMessage.from(toolExecutionRequest,
+                            "Error: there is no tool called" + toolExecutionRequest.name()))
+                    .build();
+            }
             default -> throw new IllegalArgumentException("不支持的代码生成类型: " + codeGenType.getValue());
-        };
+        }
+
+            ;
 
     }
 

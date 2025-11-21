@@ -6,10 +6,8 @@ package com.ai.project.project_generator.langgraph4j.node;
 
 import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
 
-import com.ai.project.project_generator.ImageCollectionPlanService;
-import com.ai.project.project_generator.ai.ImageCollectionService;
+import com.ai.project.project_generator.ai.ImageCollectionPlanService;
 import com.ai.project.project_generator.langgraph4j.model.ImageCollectionPlan;
-import com.ai.project.project_generator.langgraph4j.state.ImageCategoryEnum;
 import com.ai.project.project_generator.langgraph4j.state.ImageResource;
 import com.ai.project.project_generator.langgraph4j.state.WorkflowContext;
 import com.ai.project.project_generator.langgraph4j.tools.ImageSearchTool;
@@ -24,7 +22,6 @@ import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.prebuilt.MessagesState;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
