@@ -9,6 +9,13 @@ spring:
     # session 30 天过期
     timeout: 2592000
 
+  data:
+    redis:
+      host: your redis host
+      port:
+      password: your redis password
+      ttl: 3600
+      user-name: your redis user
 
 
 
@@ -16,7 +23,7 @@ server:
   port: 8123
   servlet:
     context-path: /api
-    session: 
+    session:
       cookie:
         max-age: 2592000
 
@@ -52,7 +59,7 @@ langchain4j:
       max-tokens: 8192
       log-requests: true
       log-responses: true
-      
+
     # 推理 AI 模型配置（用于复杂的推理任务）
     reasoning-streaming-chat-model:
       base-url: https://api.deepseek.com
@@ -79,8 +86,8 @@ langchain4j:
 #      dimension: 384
 # Pexels 图片搜索配置
 pexels:
-  api-key: iPc6cTx4YwAYxxMS2ellrrLQ4sRlNWM41pSx248G06RmcKAfN6xYBxng
-  
+  api-key: your api key
+
 # 添加 COS 对象存储配置（需要从腾讯云获取）
 cos:
   client:

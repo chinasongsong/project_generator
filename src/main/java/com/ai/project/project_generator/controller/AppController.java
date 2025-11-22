@@ -1,5 +1,8 @@
 package com.ai.project.project_generator.controller;
 
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.ai.project.project_generator.annotation.AuthCheck;
 import com.ai.project.project_generator.common.BaseResponse;
 import com.ai.project.project_generator.common.DeleteRequest;
@@ -9,11 +12,7 @@ import com.ai.project.project_generator.constant.UserConstant;
 import com.ai.project.project_generator.exception.BusinessException;
 import com.ai.project.project_generator.exception.ErrorCode;
 import com.ai.project.project_generator.exception.ThrowUtils;
-import com.ai.project.project_generator.model.dto.app.AppAddRequest;
-import com.ai.project.project_generator.model.dto.app.AppDeployRequest;
-import com.ai.project.project_generator.model.dto.app.AppEditRequest;
-import com.ai.project.project_generator.model.dto.app.AppQueryRequest;
-import com.ai.project.project_generator.model.dto.app.AppUpdateRequest;
+import com.ai.project.project_generator.model.dto.app.*;
 import com.ai.project.project_generator.model.entity.App;
 import com.ai.project.project_generator.model.entity.User;
 import com.ai.project.project_generator.model.vo.AppVO;
@@ -21,28 +20,18 @@ import com.ai.project.project_generator.service.AppService;
 import com.ai.project.project_generator.service.ProjectDownloadService;
 import com.ai.project.project_generator.service.UserService;
 import com.mybatisflex.core.paginate.Page;
-
-import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.util.StrUtil;
-import cn.hutool.json.JSONUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.ResourceAccessException;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.io.File;
 import java.net.SocketException;
@@ -72,7 +61,7 @@ public class AppController {
 
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> charToGenerateApp(@RequestParam Long appId, @RequestParam String userMessage,
-        HttpServletRequest request) {
+                                                           HttpServletRequest request) {
         Flux<String> stringFlux = appService.charToGenerateApp(appId, userMessage, request);
         Flux<ServerSentEvent<String>> dataFlux = stringFlux.map(chunk -> {
             Map<String, String> wrapper = Map.of("d", chunk);
@@ -89,20 +78,20 @@ public class AppController {
 
         // 在正常完成或错误后都发送 done 事件
         return dataFlux.concatWith(Mono.just(ServerSentEvent.<String>builder().event("done").data("").build()))
-            .onErrorResume(error -> {
-                // 如果发送完成事件时也失败，确保返回错误事件
-                log.error("发送完成事件时发生错误", error);
-                Map<String, String> errorWrapper = Map.of("error", "系统错误: " + error.getMessage());
-                String errorJsonStr = JSONUtil.toJsonStr(errorWrapper);
-                return Flux.just(ServerSentEvent.<String>builder().event("error").data(errorJsonStr).build());
-            });
+                .onErrorResume(error -> {
+                    // 如果发送完成事件时也失败，确保返回错误事件
+                    log.error("发送完成事件时发生错误", error);
+                    Map<String, String> errorWrapper = Map.of("error", "系统错误: " + error.getMessage());
+                    String errorJsonStr = JSONUtil.toJsonStr(errorWrapper);
+                    return Flux.just(ServerSentEvent.<String>builder().event("error").data(errorJsonStr).build());
+                });
     }
 
     /**
      * 创建应用
      *
      * @param appAddRequest 创建应用请求
-     * @param request 请求
+     * @param request       请求
      * @return 新应用 id
      */
     @PostMapping("/add")
@@ -121,7 +110,7 @@ public class AppController {
      * 删除应用
      *
      * @param deleteRequest 删除请求
-     * @param request 请求
+     * @param request       请求
      * @return 删除结果
      */
     @PostMapping("/delete")
@@ -137,7 +126,7 @@ public class AppController {
      * 更新应用（仅本人）
      *
      * @param appUpdateRequest 更新应用请求
-     * @param request 请求
+     * @param request          请求
      * @return 更新结果
      */
     @PostMapping("/update")
@@ -155,7 +144,7 @@ public class AppController {
     /**
      * 根据 id 获取应用（封装类）
      *
-     * @param id 应用 id
+     * @param id      应用 id
      * @param request 请求
      * @return 应用封装类
      */
@@ -169,12 +158,12 @@ public class AppController {
      * 分页获取当前用户创建的应用列表
      *
      * @param appQueryRequest 查询请求
-     * @param request 请求
+     * @param request         请求
      * @return 应用列表
      */
     @PostMapping("/my/list/page/vo")
     public BaseResponse<Page<AppVO>> listMyAppVOByPage(@RequestBody AppQueryRequest appQueryRequest,
-        HttpServletRequest request) {
+                                                       HttpServletRequest request) {
         if (appQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -193,12 +182,26 @@ public class AppController {
      * 分页获取精选应用列表
      *
      * @param appQueryRequest 查询请求
-     * @param request 请求
+     * @param request         请求
      * @return 精选应用列表
+     * <p>
+     * <p>
+     * <p>
+     * 缓存注解工作原理：
+     * 1、方法执行前：Spring 根据key生成缓存键
+     * 2、缓存检查：检查Redis中是否有此key对应的缓存数据
+     * 3、缓存命中：如果有缓存数据且未过期，则直接返回缓存数据，不再执行方法体
+     * 4、缓存未命中：如果没有缓存数据或已过期，则执行方法体，生成缓存数据，并返回结果
+     * 5、返回结果：返回方法执行结果
      */
     @PostMapping("/list/page/vo/featured")
+    @Cacheable(
+            value = "good_app_page",
+            key = "T(com.ai.project.project_generator.utils.CacheKeyUtils).generateKey(#appQueryRequest)",
+            condition = "#appQueryRequest.pageNum <= 10"
+    )
     public BaseResponse<Page<AppVO>> listFeaturedAppVOByPage(@RequestBody AppQueryRequest appQueryRequest,
-        HttpServletRequest request) {
+                                                             HttpServletRequest request) {
         if (appQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -212,7 +215,7 @@ public class AppController {
     /**
      * 根据 id 获取应用（仅管理员）
      *
-     * @param id 应用 id
+     * @param id      应用 id
      * @param request 请求
      * @return 应用封装类
      */
@@ -226,13 +229,13 @@ public class AppController {
      * 删除应用（仅管理员）
      *
      * @param deleteRequest 删除请求
-     * @param request 请求
+     * @param request       请求
      * @return 删除结果
      */
     @PostMapping("/delete/admin")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Boolean> deleteAppByAdmin(@RequestBody DeleteRequest deleteRequest,
-        HttpServletRequest request) {
+                                                  HttpServletRequest request) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -244,13 +247,13 @@ public class AppController {
      * 更新应用（仅管理员）
      *
      * @param appEditRequest 更新应用请求
-     * @param request 请求
+     * @param request        请求
      * @return 更新结果
      */
     @PostMapping("/edit")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Boolean> editAppByAdmin(@RequestBody AppEditRequest appEditRequest,
-        HttpServletRequest request) {
+                                                HttpServletRequest request) {
         if (appEditRequest == null || appEditRequest.getId() == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -267,13 +270,13 @@ public class AppController {
      * 分页获取应用列表（仅管理员）
      *
      * @param appQueryRequest 查询请求
-     * @param request 请求
+     * @param request         请求
      * @return 应用列表
      */
     @PostMapping("/list/page/vo/admin")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Page<AppVO>> listAppVOByPageAdmin(@RequestBody AppQueryRequest appQueryRequest,
-        HttpServletRequest request) {
+                                                          HttpServletRequest request) {
         if (appQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -285,7 +288,7 @@ public class AppController {
      * 应用部署
      *
      * @param appDeployRequest 部署请求
-     * @param request 请求
+     * @param request          请求
      * @return 部署 URL
      */
     @PostMapping("/deploy")
@@ -313,7 +316,7 @@ public class AppController {
         String sourceDirPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
         File sourceFile = new File(sourceDirPath);
         ThrowUtils.throwIf(!sourceFile.exists() || !sourceFile.isDirectory(), ErrorCode.NOT_FOUND_ERROR,
-            "应用代码不存在，请先生成代码");
+                "应用代码不存在，请先生成代码");
         String downloadFileName = String.valueOf(appId);
         projectDownloadService.downloadProjectAsZip(sourceDirPath, downloadFileName, response);
     }
@@ -343,8 +346,8 @@ public class AppController {
             return "AI服务网络连接失败，请检查网络连接后重试";
         } else {
             return "AI服务调用失败: " + (error.getMessage() != null
-                ? error.getMessage()
-                : error.getClass().getSimpleName());
+                    ? error.getMessage()
+                    : error.getClass().getSimpleName());
         }
     }
 
